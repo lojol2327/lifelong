@@ -11,7 +11,7 @@
     <a href="https://people.csail.mit.edu/ganchuang">Chuang Gan</a>
   </p>
   <p align="center">
-    <a href='https://vis-www.cs.umass.edu/snapmem' style='padding-left: 0.5rem;'>
+    <a href='https://vis-www.cs.umass.edu/3dmem' style='padding-left: 0.5rem;'>
       <img src='https://img.shields.io/badge/Project-Page-blue?style=flat&logo=Google%20chrome&logoColor=blue' alt='Project Page'>
     </a>
   </p>
