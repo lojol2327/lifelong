@@ -2,6 +2,9 @@
 <p align="center">
   <h1 align="center">3D-Mem: 3D Scene Memory for Embodied Exploration and Reasoning</h1>
   <p align="center">
+    CVPR 2025
+  </p>
+  <p align="center">
     <a href="https://yyuncong.github.io/">Yuncong Yang</a>,
     <a href="https://hanyangclarence.github.io/">Han Yang</a>,
     <a href="https://www.linkedin.com/in/jiachen-zhou5/">Jiachen Zhou</a>,
@@ -28,7 +31,11 @@ This is the official repository of **3D-Mem**: 3D Scene Memory for Embodied Expl
 
 ---
 
+## News
 
+- [2025/03] Inference code for A-EQA and GOAT-Bench is released.
+- [2025/02] 3D-Mem is accepted to CVPR 2025!
+- [2024/12] [Paper](https://www.arxiv.org/abs/2411.17735) is on arXiv.
 
 ## Installation
 Set up the conda environment (Linux, Python 3.9):
