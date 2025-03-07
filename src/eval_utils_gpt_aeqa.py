@@ -52,7 +52,6 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
                 top_p=0.95,
                 frequency_penalty=0,
                 presence_penalty=0,
-                stop=None,
             )
             return completion.choices[0].message.content
         except openai.RateLimitError as e:
