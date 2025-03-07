@@ -93,6 +93,9 @@ The results will be saved and printed after the script finishes. You can also sp
 Note that GOAT-Bench provides 10 explore episodes for each scene, and by default we only test the first episode due to the time and resource constraints.
 You can also specify the episode to evaluate for each scene by setting `--split`.
 
+### 4 - Save Visualization
+The default evaluation config will save visualization results including topdown maps, egocentric views, memory snapshots, and frontier snapshots at each step. Although saving visualization is very helpful, it may slows down the evaluation process. Please make save_visualization false if you would like to run large-scale evaluation.
+
 
 ## Acknowledgement
 
