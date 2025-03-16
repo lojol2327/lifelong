@@ -61,8 +61,7 @@ Please download the train and val split of [HM3D](https://aihabitat.org/datasets
 the path in `cfg/eval_aeqa.yaml` and `cfg/eval_goatbench.yaml`. For example, if your download path is `/your_path/hm3d/` that 
 contains `/your_path/hm3d/train/` and `/your_path/hm3d/val/`, you can set the `scene_data_path` in the config files as `/your_path/hm3d/`.
 
-The test questions of A-EQA and GOAT-Bench are provided in the `data/` folder. For A-EQA, since some questions are
-not suitable for embodied QA in our settings, we provide two subsets of different size: `aeqa_questions-41.json` and `aeqa_questions-184.json`.
+The test questions of A-EQA and GOAT-Bench are provided in the `data/` folder. For A-EQA, we provide two subsets of different size: `aeqa_questions-41.json` and `aeqa_questions-184.json`, where `aeqa_questions-184.json` is the official subset provided by OpenEQA and `aeqa_questions-41.json` is a smaller subset for quick evaluation.
 For GOAT-Bench, we include the complete `val_unseen` split in this repository.
 
 #### OpenAI API Setup
