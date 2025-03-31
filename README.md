@@ -17,7 +17,7 @@
     <a href="https://arxiv.org/abs/2411.17735">
       <img src='https://img.shields.io/badge/Paper-PDF-red?style=flat&logo=arXiv&logoColor=red' alt='Paper PDF'>
     </a>
-    <a href='https://embodied-agi.cs.umass.edu/3dmem/' style='padding-left: 0.5rem;'>
+    <a href='https://umass-embodied-agi.github.io/3D-Mem/' style='padding-left: 0.5rem;'>
       <img src='https://img.shields.io/badge/Project-Page-blue?style=flat&logo=Google%20chrome&logoColor=blue' alt='Project Page'>
     </a>
   </p>
