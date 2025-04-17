@@ -292,6 +292,7 @@ class Logger:
             if question_id not in self.success_list:
                 self.success_list.append(question_id)
             self.path_length_list[question_id] = explore_dist
+            self.gpt_answer_list.append({"question_id": question_id, "answer": gpt_answer})
             logging.info(
                 f"Question id {question_id} finish successfully, {explore_dist} length"
             )
@@ -309,8 +310,6 @@ class Logger:
         logging.info(
             f"Filtered snapshots/Total snapshots/Total frames: {n_filtered_snapshots}/{n_total_snapshots}/{n_total_frames}"
         )
-
-        self.gpt_answer_list.append({"question_id": question_id, "answer": gpt_answer})
 
         self.n_filtered_snapshots_list[question_id] = n_filtered_snapshots
         self.n_total_snapshots_list[question_id] = n_total_snapshots
