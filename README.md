@@ -104,13 +104,12 @@ We thank the authors for their great work.
 ## Citing 3D-Mem
 
 ```tex
-@misc{yang20243dmem3dscenememory,
-      title={3D-Mem: 3D Scene Memory for Embodied Exploration and Reasoning}, 
-      author={Yuncong Yang and Han Yang and Jiachen Zhou and Peihao Chen and Hongxin Zhang and Yilun Du and Chuang Gan},
-      year={2024},
-      eprint={2411.17735},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2411.17735}, 
+@InProceedings{Yang_2025_CVPR,
+    author    = {Yang, Yuncong and Yang, Han and Zhou, Jiachen and Chen, Peihao and Zhang, Hongxin and Du, Yilun and Gan, Chuang},
+    title     = {3D-Mem: 3D Scene Memory for Embodied Exploration and Reasoning},
+    booktitle = {Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR)},
+    month     = {June},
+    year      = {2025},
+    pages     = {17294-17303}
 }
 ```
