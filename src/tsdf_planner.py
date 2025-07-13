@@ -752,9 +752,14 @@ class TSDFPlanner(TSDFPlannerBase):
 
             for key, snapshot in snapshots.items():
                 obs_point = snapshot.obs_point[:2]
+                # 존재하는 객체 ID만 필터링
+                valid_obj_ids = [obj_id for obj_id in snapshot.cluster if obj_id in objects]
+                if not valid_obj_ids:
+                    continue  # 유효한 객체가 없으면 스킵
+                
                 obj_points = [
                     self.habitat2voxel(objects[obj_id]["bbox"].center)[:2]
-                    for obj_id in snapshot.cluster
+                    for obj_id in valid_obj_ids
                 ]
                 obj_center = np.mean(obj_points, axis=0)
                 view_direction = obj_center - obs_point
@@ -805,12 +810,14 @@ class TSDFPlanner(TSDFPlannerBase):
 
                 ax1.add_patch(wedge)
 
-                for obj_id in snapshot.cluster:
+                for obj_id in valid_obj_ids:
                     obj_vox = self.habitat2voxel(objects[obj_id]["bbox"].center)
                     ax1.scatter(obj_vox[1], obj_vox[0], color=snapshot.color, s=30)
 
             if type(self.max_point) == SnapShot:
-                for obj_id in self.max_point.cluster:
+                # 존재하는 객체 ID만 필터링
+                valid_obj_ids = [obj_id for obj_id in self.max_point.cluster if obj_id in objects]
+                for obj_id in valid_obj_ids:
                     obj_vox = self.habitat2voxel(objects[obj_id]["bbox"].center)
                     ax1.scatter(obj_vox[1], obj_vox[0], color="r", s=30)
 
