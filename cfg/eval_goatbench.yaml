@@ -3,7 +3,7 @@ seed: 77
 exp_name: "exp_eval_goatbench"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
-scene_data_path: "YOUR_HM3D_PATH"
+scene_data_path: "data/scene_datasets/hm3d/"
 test_data_dir: "data/goat_bench/val_unseen/content/"
 
 concept_graph_config_path: "cfg/concept_graph_default.yaml"
