@@ -6,6 +6,8 @@ os.environ["HABITAT_SIM_LOG"] = (
     "quiet"  # https://aihabitat.org/docs/habitat-sim/logging.html
 )
 os.environ["MAGNUM_LOG"] = "quiet"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import argparse
 from omegaconf import OmegaConf
