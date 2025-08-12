@@ -51,7 +51,25 @@ def make_semantic_cfg(settings):
     sim_cfg.load_semantic_mesh = True
 
     # agent
-    agent_cfg = habitat_sim.agent.AgentConfiguration()
+    agent_cfg = habitat_sim.agent.AgentConfiguration(
+        height=settings['agent_cfg'].height,
+        radius=settings['agent_cfg'].radius,
+    )
+    agent_cfg.action_space["move_forward"] = habitat_sim.ActionSpec(
+        "move_forward", habitat_sim.ActuationSpec(settings['agent_cfg'].step_size)
+    )
+    agent_cfg.action_space["turn_left"] = habitat_sim.ActionSpec(
+        "turn_left", habitat_sim.ActuationSpec(settings['agent_cfg'].turn_angle)
+    )
+    agent_cfg.action_space["turn_right"] = habitat_sim.ActionSpec(
+        "turn_right", habitat_sim.ActuationSpec(settings['agent_cfg'].turn_angle)
+    )
+    agent_cfg.action_space["look_up"] = habitat_sim.ActionSpec(
+        "look_up", habitat_sim.ActuationSpec(settings['agent_cfg'].tilt_angle)
+    )
+    agent_cfg.action_space["look_down"] = habitat_sim.ActionSpec(
+        "look_down", habitat_sim.ActuationSpec(settings['agent_cfg'].tilt_angle)
+    )
 
     # In the 1st example, we attach only one sensor, a RGB visual sensor, to the agent
     rgb_sensor_spec = habitat_sim.CameraSensorSpec()
@@ -69,6 +87,7 @@ def make_semantic_cfg(settings):
     depth_sensor_spec.position = habitat_sim.geo.UP * settings["sensor_height"]
     depth_sensor_spec.orientation = [settings["camera_tilt"], 0.0, 0.0]
     depth_sensor_spec.hfov = settings["hfov"]
+    depth_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
     semantic_sensor_spec = habitat_sim.CameraSensorSpec()
     semantic_sensor_spec.uuid = "semantic_sensor"
