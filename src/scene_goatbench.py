@@ -67,11 +67,12 @@ class Scene:
         clip_model,
         clip_preprocess,
         clip_tokenizer,
+        device
     ):
         self.cfg = cfg
         # concept graph configuration
         self.cfg_cg = graph_cfg
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
 
         # about the loading the scene
         if int(scene_id.split("-")[0]) < 800:
@@ -112,6 +113,7 @@ class Scene:
             "hfov": cfg.hfov,
             "scene_dataset_config_file": cfg.scene_dataset_config_path,
             "camera_tilt": cfg.camera_tilt_deg * np.pi / 180,
+            "agent_cfg": cfg.agent,
         }
         sim_cfg = make_semantic_cfg(sim_settings)
         self.simulator = habitat_sim.Simulator(sim_cfg)
@@ -200,7 +202,7 @@ class Scene:
         cam_pose[:3, 3] = translation_0
 
         obs["color_sensor"] = rgba2rgb(obs["color_sensor"])
-
+        
         return obs, cam_pose
 
     def get_frontier_observation(self, pts, view_dir, camera_tilt=0.0):
