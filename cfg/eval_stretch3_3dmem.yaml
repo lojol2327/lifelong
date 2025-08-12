@@ -1,7 +1,7 @@
 # General
 seed: 77
-exp_name: "exp_eval_goatbench"
-output_parent_dir: "results/debug"
+exp_name: "debug"
+output_parent_dir: "results/3dmem_cfg_stretch3"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "data/scene_datasets/hm3d/"
 test_data_dir: "data/goat_bench/val_unseen/content/"
@@ -9,7 +9,7 @@ test_data_dir: "data/goat_bench/val_unseen/content/"
 concept_graph_config_path: "cfg/concept_graph_default.yaml"
 
 # major settings
-choose_every_step: true  # whether to query vlm at each step, or only after arriving at the navigation target
+choose_every_step: true  #whether to query vlm at each step, or only after arriving at the navigation target
 egocentric_views: true  # whether to add egocentric views when prompting vlm
 prefiltering: true  # whether to use prefiltering (you in fact cannot turn this off, since otherwise it will exceed the context length limit)
 top_k_categories: 10  # keep the top k relevant categories during prefiltering
@@ -22,12 +22,24 @@ class_set: scannet200  # use the 200-class set for yolo-world detector
 # about snapshots clustering
 min_detection: 1
 
+# about agent
+agent:
+  height: 1.41 ### Stretch3
+  radius: 0.17
+  step_size: 0.25 
+  turn_angle: 30.0
+  tilt_angle: 30.0
+
 # camera, image
 camera_height: 1.31 ### Stretch3
-camera_tilt_deg: -30
-img_width: 360 ### Stretch3
-img_height: 640 ### Stretch3
-hfov: 42
+camera_tilt_deg: -25 ### Stretch3
+img_width: 720 ### Stretch3
+img_height: 1280 ### D435if: 원래는 up to 1920x1080 | 69x42
+hfov: 120                   
+# hfov: 42                    ### (종횡 반대로 설치됨)
+min_depth: 0.3
+max_depth: 3.0
+
 
 # about goatbench evaluation
 success_distance: 1.0  # the distance threshold for a successful navigation
@@ -38,19 +50,23 @@ use_full_obj_list: false
 save_visualization: true
 
 # the image size for prompting gpt-4o
-prompt_h: 360
 prompt_w: 360
+prompt_h: 640
 
 # navigation
 init_clearance: 0.3
 max_step_room_size_ratio: 2
-extra_view_phase_1: 2  # the number of extra views
-extra_view_angle_deg_phase_1: 60  # the angle between each extra view
-extra_view_phase_2: 6
+# extra_view_phase_1: 2  # the number of extra views
+# extra_view_angle_deg_phase_1: 60  # the angle between each extra view
+# extra_view_phase_2: 6
+# extra_view_angle_deg_phase_2: 40
+extra_view_phase_1: 8  # the number of extra views
+extra_view_angle_deg_phase_1: 40  # the angle between each extra view
+extra_view_phase_2: 8
 extra_view_angle_deg_phase_2: 40
 
 # about tsdf, depth map, and frontier updates
-explored_depth: 3.0 ### Stretch3
+explored_depth: 1.7
 tsdf_grid_size: 0.1
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6

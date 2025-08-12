@@ -1,0 +1,100 @@
+# Debug Configuration for Frontier Map Testing
+# 이 설정은 빠른 디버깅과 개발을 위해 최적화되었습니다.
+
+# General
+seed: 77
+exp_name: "frontier_debug"
+output_parent_dir: "debug_results"
+scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
+scene_data_path: "data/scene_datasets/hm3d/"
+test_data_dir: "data/goat_bench/val_unseen/content/"
+
+concept_graph_config_path: "cfg/concept_graph_default.yaml"
+
+# major settings (간소화)
+choose_every_step: true
+egocentric_views: true
+prefiltering: true
+top_k_categories: 5  # 디버깅용: 더 적은 카테고리
+
+# about detection model (원래 설정 사용)
+yolo_model_name: yolov8x-world.pt 
+sam_model_name: sam_b.pt         
+class_set: scannet200
+
+# about snapshots clustering
+min_detection: 1
+
+# about agent (Stretch3 설정 유지)
+agent:
+  height: 1.41 ### Stretch3
+  radius: 0.17
+  step_size: 0.25 
+  turn_angle: 30.0
+  tilt_angle: 30.0
+
+# camera, image (디버깅용 해상도 감소)
+camera_height: 1.31 ### Stretch3
+camera_tilt_deg: -25 ### Stretch3
+img_width: 360   # 원래 720 → 360 (더 빠른 처리)
+img_height: 640  # 원래 1280 → 640 (더 빠른 처리)
+hfov: 42         ### Stretch3 spec
+min_depth: 0.3   ### Stretch3 spec
+max_depth: 3.0   ### Stretch3 spec
+
+# about goatbench evaluation
+success_distance: 1.0
+clear_up_memory_every_subtask: false
+use_full_obj_list: false
+
+# visualization (디버깅용 켜기)
+save_visualization: true
+
+# prompt image size (더 작게)
+prompt_w: 240  # 원래 360 → 240
+prompt_h: 320  # 원래 640 → 320
+
+# navigation (디버깅용 조정)
+init_clearance: 0.3
+max_step_room_size_ratio: 2
+extra_view_phase_1: 8  # 원래 8 → 4 (더 빠른 탐색)
+extra_view_angle_deg_phase_1: 40
+extra_view_phase_2: 8  # 원래 8 → 4
+extra_view_angle_deg_phase_2: 40
+
+# about tsdf, depth map, and frontier updates (디버깅 최적화)
+explored_depth: 1.7
+tsdf_grid_size: 0.1   # 원래대로 복원 (더 정밀한 frontier 탐지)
+margin_w_ratio: 0.25
+margin_h_ratio: 0.6
+
+planner:
+  eps: 1
+  max_dist_from_cur_phase_1: 1
+  max_dist_from_cur_phase_2: 1
+  final_observe_distance: 1.5
+  surrounding_explored_radius: 0.7
+
+  # about frontier selection (원본 goatbench 설정 그대로)
+  frontier_edge_area_min: 4
+  frontier_edge_area_max: 6
+  frontier_area_min: 8
+  frontier_area_max: 9
+  min_frontier_area: 20  # the frontier should have at least this many pixels
+  max_frontier_angle_range_deg: 150  # the angle spanned by the pixels in a frontier should not be larger than this
+  region_equal_threshold: 0.95
+
+# about scene graph construction (디버깅용 완화)
+scene_graph:
+  confidence: 0.003
+  nms_threshold: 0.1
+  iou_threshold: 0.5
+  obj_include_dist: 3.5
+  target_obj_iou_threshold: 0.6
+
+# Debug-specific settings
+debug:
+  max_debug_steps: 10        # 디버깅 시 최대 스텝 수
+  save_every_step: true      # 매 스텝마다 시각화 저장
+  verbose_logging: true      # 상세한 로깅
+  frontier_vis_interval: 1   # 매 스텝마다 frontier 시각화
