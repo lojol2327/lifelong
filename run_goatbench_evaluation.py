@@ -6,6 +6,8 @@ os.environ["HABITAT_SIM_LOG"] = (
     "quiet"  # https://aihabitat.org/docs/habitat-sim/logging.html
 )
 os.environ["MAGNUM_LOG"] = "quiet"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import argparse
 from omegaconf import OmegaConf
@@ -32,6 +34,8 @@ from src.logger_goatbench import Logger
 
 
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
     # load the default concept graph config
     cfg_cg = OmegaConf.load(cfg.concept_graph_config_path)
     OmegaConf.resolve(cfg_cg)
@@ -39,6 +43,13 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
     img_height = cfg.img_height
     img_width = cfg.img_width
     cam_intr = get_cam_intr(cfg.hfov, img_height, img_width)
+
+    min_depth = None
+    max_depth = None
+    if hasattr(cfg, "min_depth"):
+        min_depth = cfg.min_depth
+    if hasattr(cfg, "max_depth"):
+        max_depth = cfg.max_depth
 
     random.seed(cfg.seed)
     np.random.seed(cfg.seed)
@@ -82,6 +93,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
     logger = Logger(
         cfg.output_dir, start_ratio, end_ratio, split, voxel_size=cfg.tsdf_grid_size
     )
+    
 
     for scene_data_file in scene_data_list:
         # load goatbench data
@@ -141,6 +153,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                 clip_model,
                 clip_preprocess,
                 clip_tokenizer,
+                device=device
             )
 
             # initialize the TSDF
@@ -242,7 +255,15 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                         # For each view
                         obs, cam_pose = scene.get_observation(pts, angle=ang)
                         rgb = obs["color_sensor"]
-                        depth = obs["depth_sensor"]
+                        depth_unfiltered = obs["depth_sensor"]
+                        if min_depth is not None and max_depth is not None:
+                            depth = np.where(
+                                (depth_unfiltered >= min_depth) & (depth_unfiltered <= max_depth),
+                                depth_unfiltered,
+                                np.nan,
+                            )
+                        else:
+                            depth = depth_unfiltered
                         semantic_obs = obs["semantic_sensor"]
 
                         # collect all view features

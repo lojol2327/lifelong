@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import torch
@@ -10,9 +10,9 @@ from PIL import Image
 
 class SigLipITM:
     def __init__(self, device: torch.device | str | None = None,
-                 model_name: str = "siglip2_base_patch16_384",
-                 pretrained: str = "",
-                 backend: str = "timm") -> None:
+                 model_name: str = "ViT-B-16-SigLIP-384",
+                 pretrained: str = "webli",
+                 backend: str = "open_clip") -> None:
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device)
@@ -59,7 +59,28 @@ class SigLipITM:
         return feats.squeeze(0).detach().cpu().numpy()
 
     @torch.no_grad()
-    def image_text_scores(self, image_rgb: np.ndarray, texts: List[str]) -> np.ndarray:
+    def encode_texts(self, texts: List[str]) -> np.ndarray:
+        if not texts:
+            return np.array([])
+        if self.backend == "timm":
+            if hasattr(self.model, "encode_texts"):
+                t_feat = self.model.encode_texts(texts)
+                if isinstance(t_feat, np.ndarray):
+                    t_feat = torch.from_numpy(t_feat).to(self.device)
+            elif hasattr(self.model, "encode_text"):
+                lst = [self.model.encode_text(t) for t in texts]
+                t_feat = torch.stack([torch.tensor(o, device=self.device) if not isinstance(o, torch.Tensor) else o for o in lst], dim=0)
+            else:
+                raise NotImplementedError("Model has no text encoding method")
+        else:
+            toks = self.tokenizer(texts).to(self.device)
+            t_feat = self.model.encode_text(toks)
+        
+        t_feat = t_feat / t_feat.norm(dim=-1, keepdim=True)
+        return t_feat.detach().cpu().numpy()
+
+    @torch.no_grad()
+    def image_text_scores(self, image_rgb: np.ndarray | Image.Image, texts: List[str]) -> np.ndarray:
         if not texts:
             return np.array([])
         img = self._to_pil(image_rgb)
@@ -91,5 +112,35 @@ class SigLipITM:
         t_feat = t_feat / t_feat.norm(dim=-1, keepdim=True)
         sims = (i_feat @ t_feat.T).squeeze(0).detach().cpu().numpy()
         return sims.astype(float)
+
+    @torch.no_grad()
+    def text_text_scores(self, texts_a: List[str], texts_b: List[str]) -> np.ndarray:
+        if not texts_a or not texts_b:
+            return np.array([])
+        
+        feats_a = self.encode_texts(texts_a)
+        feats_b = self.encode_texts(texts_b)
+        
+        sims = (feats_a @ feats_b.T)
+        return sims.squeeze().astype(float)
+
+    def image_image_scores(self, image1: Image, image2: Union[Image, List[Image]]) -> np.ndarray:
+        image1_processed = self.preprocess(image1).unsqueeze(0).to(self.device)
+
+        # Handle both single image and list of images for the second argument
+        if not isinstance(image2, list):
+            image2 = [image2]
+        
+        # Preprocess all images in the list and stack them into a single batch tensor
+        image2_processed = torch.stack([self.preprocess(img) for img in image2]).to(self.device)
+
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            image1_features = self.model.encode_image(image1_processed)
+            image2_features = self.model.encode_image(image2_processed)
+            image1_features /= image1_features.norm(dim=-1, keepdim=True)
+            image2_features /= image2_features.norm(dim=-1, keepdim=True)
+            scores = image1_features @ image2_features.T
+
+        return scores.squeeze().cpu().numpy()
 
 
