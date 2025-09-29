@@ -1,3 +1,4 @@
+data/scene_datasets/
 results/
 *.pt
 *.pyc
@@ -178,3 +179,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+*.png
+data/
+*.json
+const.py
