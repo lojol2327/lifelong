@@ -7,7 +7,11 @@ os.environ["HABITAT_SIM_LOG"] = (
 )
 os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+
+# OpenAI API 키 설정
+from mzson.const import OPENAI_KEY
+os.environ["OPENAI_API_KEY"] = OPENAI_KEY
 
 import argparse
 from omegaconf import OmegaConf
@@ -18,17 +22,14 @@ import math
 import time
 import json
 import logging
-import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw
 from typing import Dict, Optional, Any, Tuple, List
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import habitat_sim
-import cv2 # Added for cv2.resize
 
 from ultralytics import SAM, YOLOWorld
 
 from mzson.habitat import (
-    pose_habitat_to_tsdf, pos_habitat_to_normal, pos_normal_to_habitat
+    pose_habitat_to_tsdf, pos_habitat_to_normal
 )
 from mzson.geom import get_cam_intr, get_scene_bnds
 from mzson.tsdf_planner import TSDFPlanner
@@ -233,18 +234,10 @@ def run_evaluation(app_state: AppState, start_ratio: float, end_ratio: float, sp
                 floor_height = pts[1]
                 tsdf_bnds, scene_size = get_scene_bnds(scene.pathfinder, floor_height)
                 max_steps = max(int(math.sqrt(scene_size) * cfg.max_step_room_size_ratio), 50)
-                
-                # NOTE: 매 subtask마다 새로운 TSDF planner 생성 (frontier 초기화)
-                tsdf_planner = TSDFPlanner(
-                    vol_bnds=tsdf_bnds, voxel_size=cfg.tsdf_grid_size, floor_height=floor_height,
-                    floor_height_offset=0, pts_init=pts, init_clearance=cfg.init_clearance * 2,
-                    save_visualization=cfg.save_visualization,
-                )
 
                 episode_context = {
                     "start_position": pts, "floor_height": floor_height, "tsdf_bounds": tsdf_bnds,
                     "visited_positions": [], "observations_history": [], "step_count": 0,
-                    "tsdf_planner": tsdf_planner,
                     "subtask_observation_cache": {}, # Initialize short-term cache
                     "subtask_id": f"{scene_id}_{episode_id}", # Initialize subtask_id
                     "subtask_goal_str": "N/A", # Initialize subtask_goal_str
@@ -364,10 +357,6 @@ def run_subtask(
     episode_context["target_objects"] = target_objects if isinstance(target_objects, list) else []
     episode_context["subtask_goal_str"] = original_goal_str
 
-    # --- 단계별 탐색 전략을 위한 상태 변수 ---
-    navigation_mode = "exploration"  # 'exploration' or 'goal_tracking'
-    tracked_goal_path = None
-
     # run steps
     cnt_step = 0
     while cnt_step < max_steps:
@@ -377,103 +366,101 @@ def run_subtask(
         candidates_info = None
 
         # --- Phase 2: 계층적 전략 수행 ---
-        if navigation_mode == "exploration":
-            # 목표 지속성(Goal Persistence)을 적용합니다.
-            if tsdf_planner.max_point is None:
-                logging.info("No long-term target. Stop, Scan, and Select.")
-                
-                # --- 1. 관측 및 맵 업데이트 ---
-                current_step_observations = _observe_and_update_maps(
-                    scene=scene, tsdf_planner=tsdf_planner, current_pts=current_pts,
-                    current_angle=current_angle, cnt_step=cnt_step, cfg=app_state.cfg,
-                    cam_intr=app_state.cam_intr, min_depth=app_state.min_depth,
-                    max_depth=app_state.max_depth, eps_frontier_dir=app_state.logger.get_frontier_dir(),
-                )
-                
-                for obs in current_step_observations:
-                    episode_context["subtask_full_observation_history"][obs['name']] = obs
+        # 목표 지속성(Goal Persistence)을 적용합니다.
+        if tsdf_planner.max_point is None:
+            logging.info("No long-term target. Stop, Scan, and Select.")
+            
+            # --- 1. 관측 및 맵 업데이트 ---
+            current_step_observations = _observe_and_update_maps(
+                scene=scene, tsdf_planner=tsdf_planner, current_pts=current_pts,
+                current_angle=current_angle, cnt_step=cnt_step, cfg=app_state.cfg,
+                cam_intr=app_state.cam_intr, min_depth=app_state.min_depth,
+                max_depth=app_state.max_depth, eps_frontier_dir=app_state.logger.get_frontier_dir(),
+            )
+            
+            for obs in current_step_observations:
+                episode_context["subtask_full_observation_history"][obs['name']] = obs
 
-                for frontier in tsdf_planner.frontiers:
-                    if frontier.source_observation_name is None:
-                        relevant_obs_list = get_relevant_observations(
-                            frontier, current_step_observations,
-                            app_state.cfg.relevant_view_angle_threshold_deg
-                        )
-                        if len(relevant_obs_list) > 0:
-                            frontier.source_observation_name = relevant_obs_list[0]['name']
-                            frontier.cam_pose = relevant_obs_list[0]['cam_pose']
-                            frontier.depth = relevant_obs_list[0]['depth']
-                
-                # --- 2. 캐시 업데이트 ---
-                active_frontier_ids = {f.frontier_id for f in tsdf_planner.frontiers}
-                required_obs_names = {f.source_observation_name for f in tsdf_planner.frontiers if f.source_observation_name}
-                episode_context["subtask_observation_cache"] = {
-                    name: obs for name, obs in episode_context["subtask_full_observation_history"].items() if name in required_obs_names
-                }
-                current_cache = episode_context.get("frontier_score_cache", {})
-                episode_context["frontier_score_cache"] = {
-                    fid: score_data for fid, score_data in current_cache.items() if fid in active_frontier_ids
-                }
-
-                # Fallback: force-link frontier to nearest observation if none linked
-                if not required_obs_names and tsdf_planner.frontiers:
-                    if episode_context["subtask_full_observation_history"]:
-                        any_obs = next(iter(episode_context["subtask_full_observation_history"].values()))
-                        for frontier in tsdf_planner.frontiers:
-                            if frontier.source_observation_name is None:
-                                frontier.source_observation_name = any_obs['name']
-                                frontier.cam_pose = any_obs['cam_pose']
-                                frontier.depth = any_obs['depth']
-                        episode_context["subtask_observation_cache"][any_obs['name']] = any_obs
-
-                # --- 3. 새로운 목표 선택 (메모리 없이) ---
-                selection_dir = os.path.join(app_state.logger.subtask_dir, "selection")
-                chosen_target, candidates_info = _select_next_target(
-                    app_state=app_state, episode_context=episode_context,
-                    current_pts=current_pts,
-                    goal=goal,
-                    goal_type=goal_type,
-                    original_goal_str=original_goal_str,
-                    tsdf_planner=tsdf_planner,
-                    selection_dir=selection_dir,
-                    target_objects=target_objects,
-                )
-                if not chosen_target:
-                    logging.warning("Failed to select a new target frontier. Will re-scan next step.")
-                
-                if chosen_target:
-                    set_ok = tsdf_planner.set_next_navigation_point(
-                        choice=chosen_target,
-                        pts=current_pts,
-                        objects=scene.objects,
-                        cfg=app_state.cfg.planner,
-                        pathfinder=scene.pathfinder
+            for frontier in tsdf_planner.frontiers:
+                if frontier.source_observation_name is None:
+                    relevant_obs_list = get_relevant_observations(
+                        frontier, current_step_observations,
+                        app_state.cfg.relevant_view_angle_threshold_deg
                     )
-                    if not set_ok:
-                        logging.warning("Failed to set navigation point for newly chosen target. Will retry next step.")
-                        tsdf_planner.max_point = None
-                        tsdf_planner.target_point = None
+                    if len(relevant_obs_list) > 0:
+                        frontier.source_observation_name = relevant_obs_list[0]['name']
+                        frontier.cam_pose = relevant_obs_list[0]['cam_pose']
+                        frontier.depth = relevant_obs_list[0]['depth']
+            
+            # --- 2. 캐시 업데이트 ---
+            active_frontier_ids = {f.frontier_id for f in tsdf_planner.frontiers}
+            required_obs_names = {f.source_observation_name for f in tsdf_planner.frontiers if f.source_observation_name}
+            episode_context["subtask_observation_cache"] = {
+                name: obs for name, obs in episode_context["subtask_full_observation_history"].items() if name in required_obs_names
+            }
+            current_cache = episode_context.get("frontier_score_cache", {})
+            episode_context["frontier_score_cache"] = {
+                fid: score_data for fid, score_data in current_cache.items() if fid in active_frontier_ids
+            }
 
-            elif tsdf_planner.target_point is None:
-                logging.info(f"Committed target exists. Calculating next waypoint.")
+            # Fallback: force-link frontier to nearest observation if none linked
+            if not required_obs_names and tsdf_planner.frontiers:
+                if episode_context["subtask_full_observation_history"]:
+                    any_obs = next(iter(episode_context["subtask_full_observation_history"].values()))
+                    for frontier in tsdf_planner.frontiers:
+                        if frontier.source_observation_name is None:
+                            frontier.source_observation_name = any_obs['name']
+                            frontier.cam_pose = any_obs['cam_pose']
+                            frontier.depth = any_obs['depth']
+                    episode_context["subtask_observation_cache"][any_obs['name']] = any_obs
+
+            # --- 3. 새로운 목표 선택 (메모리 없이) ---
+            selection_dir = os.path.join(app_state.logger.subtask_dir, "selection")
+            chosen_target, candidates_info = _select_next_target(
+                app_state=app_state, episode_context=episode_context,
+                current_pts=current_pts,
+                goal=goal,
+                goal_type=goal_type,
+                original_goal_str=original_goal_str,
+                tsdf_planner=tsdf_planner,
+                selection_dir=selection_dir,
+                target_objects=target_objects,
+            )
+            if not chosen_target:
+                logging.warning("Failed to select a new target frontier. Will re-scan next step.")
+            
+            if chosen_target:
                 set_ok = tsdf_planner.set_next_navigation_point(
-                    choice=tsdf_planner.max_point,
+                    choice=chosen_target,
                     pts=current_pts,
                     objects=scene.objects,
                     cfg=app_state.cfg.planner,
                     pathfinder=scene.pathfinder
                 )
                 if not set_ok:
-                    logging.warning("Failed to find path to committed target. Clearing for re-evaluation.")
+                    logging.warning("Failed to set navigation point for newly chosen target. Will retry next step.")
                     tsdf_planner.max_point = None
                     tsdf_planner.target_point = None
-            
-            else:
-                logging.info(f"Continuing towards current target: {tsdf_planner.target_point}")
 
-        mode_info = f"Mode: {navigation_mode.upper()}"
+        elif tsdf_planner.target_point is None:
+            logging.info(f"Committed target exists. Calculating next waypoint.")
+            set_ok = tsdf_planner.set_next_navigation_point(
+                choice=tsdf_planner.max_point,
+                pts=current_pts,
+                objects=scene.objects,
+                cfg=app_state.cfg.planner,
+                pathfinder=scene.pathfinder
+            )
+            if not set_ok:
+                logging.warning("Failed to find path to committed target. Clearing for re-evaluation.")
+                tsdf_planner.max_point = None
+                tsdf_planner.target_point = None
+        
+        else:
+            logging.info(f"Continuing towards current target: {tsdf_planner.target_point}")
+
         target_info = f"| Target: {tsdf_planner.target_point}" if tsdf_planner.target_point is not None else ""
-        logging.info(f"\nStep {cnt_step}/{max_steps}, Global step: {global_step} | {mode_info} {target_info}")
+        logging.info(f"\nStep {cnt_step}/{max_steps}, Global step: {global_step} {target_info}")
 
         # --- 4. 에이전트 한 스텝 이동 ---
         step_vals = tsdf_planner.agent_step(
@@ -483,7 +470,6 @@ def run_subtask(
             snapshots=scene.snapshots,
             pathfinder=scene.pathfinder,
             cfg=app_state.cfg.planner if hasattr(app_state.cfg, "planner") else app_state.cfg,
-            path_points=tracked_goal_path,
             save_visualization=app_state.cfg.save_visualization,
         )
 
@@ -507,12 +493,6 @@ def run_subtask(
                 if dist_to_max_point_m < 0.5: 
                     logging.info("Vicinity of long-term target reached. Clearing for full re-evaluation.")
                     tsdf_planner.max_point = None
-
-        if waypoint_arrived:
-            if navigation_mode == "goal_tracking":
-                logging.info("Arrived at tracked goal destination! Reverting to EXPLORATION mode.")
-                navigation_mode = "exploration"
-                tracked_goal_path = None
             
         # --- Visualization (optional) ---
         if app_state.cfg.save_visualization and fig is not None:
@@ -688,6 +668,7 @@ def _select_next_target(
                         all_itm_scores.append(float(itm_scores.max()))
                 
                 score_itm = max(all_itm_scores) if all_itm_scores else 0.0
+                # score_itm = np.mean(all_itm_scores) if all_itm_scores else 0.0
             else:
                 score_itm = 0.0
 
@@ -699,7 +680,7 @@ def _select_next_target(
         else:
             logging.info(f"Cache HIT for Frontier {f.frontier_id}.")
             cached_scores = score_cache[f.frontier_id]
-            score_itm = cached_scores.get("score_itm", cached_scores.get("score_visible", 0.0))
+            score_itm = cached_scores.get("score_itm", 0.0)
             vlm_likelihood_score = cached_scores["vlm_likelihood"]
 
         # Calculate Exploration Score
